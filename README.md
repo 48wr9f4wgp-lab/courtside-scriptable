@@ -47,5 +47,5 @@ Scriptable Widget ParameterへNBA略称を設定する。
 
 - Medium preview: VERIFIED on iPhone
 - Small preview: VERIFIED on iPhone
-- Large preview: PENDING
+- Large preview: VERIFIED on iPhone
 - Lock Screen previews: PENDING
