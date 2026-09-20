@@ -1,4 +1,4 @@
-// COURTSIDE v0.3.2
+// COURTSIDE v0.4
 // Scriptable NBA favorite-team widget.
 // Widget parameter: NBA team abbreviation, e.g. LAL, GSW, BOS.
 
@@ -26,12 +26,13 @@ const SEASON = nbaSeasonYear(new Date());
 const BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 
 const model = await loadModel();
-const widget = await buildWidget(model);
+const previewFamily = config.runsInWidget ? null : await choosePreviewFamily();
+const widget = await buildWidget(model, previewFamily);
 
 Script.setWidget(widget);
 
 if (!config.runsInWidget) {
-  const family = config.widgetFamily || "medium";
+  const family = previewFamily || "medium";
   if (family === "small") await widget.presentSmall();
   else if (family === "large") await widget.presentLarge();
   else if (family === "accessoryRectangular") await widget.presentAccessoryRectangular();
@@ -77,11 +78,14 @@ async function loadModel() {
 
     const now = new Date();
     const live = events.find(e => e.state === "in") || null;
-    const upcoming = events.find(e =>
-      !e.completed &&
-      e.state !== "in" &&
-      e.date >= new Date(now.getTime() - 3 * 60 * 60 * 1000)
-    ) || null;
+    const nextGames = events
+      .filter(e =>
+        !e.completed &&
+        e.state !== "in" &&
+        e.date >= new Date(now.getTime() - 3 * 60 * 60 * 1000)
+      )
+      .slice(0,3);
+    const upcoming = nextGames[0] || null;
 
     const completed = events.filter(e => e.completed).sort((a,b) => b.date - a.date);
     const last = completed[0] || null;
@@ -102,6 +106,7 @@ async function loadModel() {
       },
       live,
       upcoming,
+      nextGames,
       last,
       last5,
       record: { wins, losses },
@@ -274,10 +279,10 @@ function formText(m) {
   return (m.last5 || []).map(g => g.result || "-").join(" ");
 }
 
-async function buildWidget(m) {
+async function buildWidget(m, familyOverride = null) {
   if (m.error) return errorWidget("COURTSIDE", "データ取得に失敗しました");
 
-  const family = config.widgetFamily || "medium";
+  const family = familyOverride || config.widgetFamily || "medium";
   if (family === "accessoryInline") return lockInline(m);
   if (family === "accessoryCircular") return lockCircular(m);
   if (family === "accessoryRectangular") return lockRect(m);
@@ -338,28 +343,54 @@ async function header(parent,m,compact=false) {
 
 async function smallWidget(w,m) {
   await header(w,m,true);
-  w.addSpacer(8);
+  w.addSpacer(6);
   addText(w,phaseLabel(m),8,"bold","FFFFFF",0.48);
-  w.addSpacer(3);
+  w.addSpacer(4);
 
   const g = m.live || m.upcoming || m.last;
+
   if (!g) {
     addText(w,"日程未発表",16,"bold","FFFFFF");
-  } else if (m.live) {
-    addText(w,`${m.team.abbr} ${g.teamScore}-${g.oppScore}`,20,"bold","FFFFFF");
-    addText(w,`vs ${g.opponent.abbr}`,11,"medium","FFFFFF",0.7);
-    addText(w,liveStatus(g),11,"medium","FFFFFF",0.82);
+    w.addSpacer();
+    footer(w,m);
+    return;
+  }
+
+  if (m.live) {
+    addText(w,`${m.team.abbr} ${g.teamScore}-${g.oppScore}`,21,"bold","FFFFFF");
+    addText(w,`vs ${g.opponent.abbr}`,10,"medium","FFFFFF",0.68);
+    addText(w,liveStatus(g),11,"bold","FF6B63",0.95);
   } else if (m.upcoming) {
-    addText(w,`vs ${g.opponent.abbr}`,23,"bold","FFFFFF");
-    addText(w,formatGameDate(g.date),11,"medium","FFFFFF",0.9);
+    const row = w.addStack();
+    row.centerAlignContent();
+
+    const info = row.addStack();
+    info.layoutVertically();
+    addText(info,`vs ${g.opponent.abbr}`,23,"bold","FFFFFF");
+    addText(info,formatGameDate(g.date),10,"medium","FFFFFF",0.86);
+
+    row.addSpacer(6);
+
+    const opp = await getImage(
+      g.opponent.logo,
+      `small_${g.opponent.abbr.toLowerCase()}`
+    );
+
+    if (opp) {
+      const logo = row.addImage(opp);
+      logo.imageSize = new Size(34,34);
+    }
+
+    w.addSpacer(4);
+
     if (phase(m) === "preseason") {
-      addText(w,countdown(g.date),12,"bold","FFFFFF",0.9);
+      addText(w,countdown(g.date),13,"bold","FFFFFF",0.94);
     } else {
       addText(w,g.homeAway === "away" ? "AWAY" : "HOME",9,"medium","FFFFFF",0.62);
     }
   } else {
     addText(w,`${g.result} ${g.teamScore}-${g.oppScore}`,21,"bold",g.result === "W" ? "34C759" : "FF453A");
-    addText(w,`vs ${g.opponent.abbr}`,11,"medium","FFFFFF",0.72);
+    addText(w,`vs ${g.opponent.abbr}`,10,"medium","FFFFFF",0.70);
   }
 
   w.addSpacer();
@@ -504,8 +535,27 @@ async function largeWidget(w,m) {
   w.addSpacer(14);
 
   if (phase(m) === "preseason") {
-    addText(w,"PRESEASON MODE",9,"bold","FFFFFF",0.58);
-    addText(w,"開幕後は戦績・直近結果・FORMへ自動切替",12,"medium","FFFFFF",0.78);
+    const more = (m.nextGames || []).slice(1,3);
+
+    if (more.length) {
+      addText(w,"UPCOMING",9,"bold","FFFFFF",0.58);
+      w.addSpacer(6);
+
+      for (const g of more) {
+        const r = w.addStack();
+        r.centerAlignContent();
+
+        addText(r,formatShortDate(g.date),11,"medium","FFFFFF",0.72);
+        r.addSpacer(8);
+        addText(r,`vs ${g.opponent.abbr}`,15,"bold","FFFFFF");
+        r.addSpacer();
+        addText(r,g.homeAway === "away" ? "AWAY" : "HOME",9,"medium","FFFFFF",0.52);
+
+        w.addSpacer(5);
+      }
+    } else {
+      addText(w,"次戦情報を取得中",11,"medium","FFFFFF",0.68);
+    }
   } else {
     const row = w.addStack();
 
@@ -675,6 +725,36 @@ function rgbToHex(r,g,b) {
     .map(v => Math.max(0,Math.min(255,v)).toString(16).padStart(2,"0"))
     .join("")
     .toUpperCase();
+}
+
+async function choosePreviewFamily() {
+  const alert = new Alert();
+  alert.title = "COURTSIDE Preview";
+  alert.message = "確認するサイズを選択";
+  alert.addAction("Small");
+  alert.addAction("Medium");
+  alert.addAction("Large");
+  alert.addAction("Lock Rectangle");
+  alert.addAction("Lock Inline");
+  alert.addAction("Lock Circular");
+
+  const i = await alert.presentSheet();
+
+  return [
+    "small",
+    "medium",
+    "large",
+    "accessoryRectangular",
+    "accessoryInline",
+    "accessoryCircular"
+  ][i] || "medium";
+}
+
+function formatShortDate(d) {
+  const f = new DateFormatter();
+  f.locale = "ja_JP";
+  f.dateFormat = "M/d E";
+  return f.string(new Date(d));
 }
 
 function addText(parent,text,size,weight="regular",hex="FFFFFF",opacity=1) {
