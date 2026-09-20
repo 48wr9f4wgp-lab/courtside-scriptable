@@ -1,4 +1,4 @@
-// COURTSIDE v0.3
+// COURTSIDE v0.3.1
 // Scriptable NBA favorite-team widget.
 // Widget parameter: NBA team abbreviation, e.g. LAL, GSW, BOS.
 
@@ -634,14 +634,14 @@ async function buildBackgroundImage(m, family) {
     const logo = await getImage(m.team.logo, `bg_${m.team.abbr.toLowerCase()}_logo`);
     if (logo) {
       const logoSize =
-        family === "small" ? 390 :
-        family === "large" ? 650 :
-        470;
+        family === "small" ? 340 :
+        family === "large" ? 590 :
+        410;
 
-      const x = size.width - logoSize * 0.88;
+      const x = size.width - logoSize * 0.94;
       const y = family === "large"
-        ? size.height * 0.12
-        : size.height * 0.10;
+        ? size.height * 0.14
+        : size.height * 0.15;
 
       ctx.drawImageInRect(
         logo,
@@ -651,10 +651,6 @@ async function buildBackgroundImage(m, family) {
       // Dark veil keeps the watermark subtle and text readable.
       ctx.setFillColor(new Color("05070D",0.72));
       ctx.fillRect(new Rect(0,0,size.width,size.height));
-
-      // Extra shading on the left where most text sits.
-      ctx.setFillColor(new Color("02040A",0.22));
-      ctx.fillRect(new Rect(0,0,size.width * 0.62,size.height));
     }
 
     return ctx.getImage();
