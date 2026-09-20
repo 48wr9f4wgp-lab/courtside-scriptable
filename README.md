@@ -32,7 +32,7 @@ Scriptable Widget ParameterへNBA略称を設定する。
 
 ## Current
 
-- Remote app: COURTSIDE v0.3.2
+- Remote app: COURTSIDE v0.4
 - Loader: v1.1
 - Repository: `48wr9f4wgp-lab/courtside-scriptable`
 - Status: 専用Repositoryへ移設済み / Scriptable loader経由の実機検証待ち
