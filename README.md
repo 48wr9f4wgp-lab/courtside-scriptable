@@ -41,3 +41,11 @@ Scriptable Widget ParameterへNBA略称を設定する。
 
 現行prototypeはESPNのpublic-facing JSON endpointを利用。
 公式developer APIとして保証されたendpointではないため、仕様変更時は取得層を差し替える。
+
+
+## Verification
+
+- Medium preview: VERIFIED on iPhone
+- Small preview: VERIFIED on iPhone
+- Large preview: PENDING
+- Lock Screen previews: PENDING
