@@ -1,4 +1,4 @@
-// COURTSIDE v0.2.1
+// COURTSIDE v0.3
 // Scriptable NBA favorite-team widget.
 // Widget parameter: NBA team abbreviation, e.g. LAL, GSW, BOS.
 
@@ -285,10 +285,15 @@ async function buildWidget(m) {
   const w = new ListWidget();
   w.setPadding(14,14,14,14);
 
-  const grad = new LinearGradient();
-  grad.locations = [0,1];
-  grad.colors = [new Color(m.team.color,0.98), new Color("070911",1)];
-  w.backgroundGradient = grad;
+  const bg = await buildBackgroundImage(m, family);
+  if (bg) {
+    w.backgroundImage = bg;
+  } else {
+    const grad = new LinearGradient();
+    grad.locations = [0,1];
+    grad.colors = [new Color(m.team.color,0.98), new Color("070911",1)];
+    w.backgroundGradient = grad;
+  }
 
   // iOS decides the actual refresh time.
   w.refreshAfterDate = new Date(Date.now() + (m.live ? 5 : 30) * 60 * 1000);
@@ -434,7 +439,6 @@ async function mediumWidget(w,m) {
     }
     right.addSpacer(3);
     addText(right,countdown(m.upcoming.date),19,"bold","FFFFFF");
-    addText(right,`vs ${m.upcoming.opponent.abbr}`,9,"medium","FFFFFF",0.62);
   } else {
     addText(right,"SEASON",8,"bold","FFFFFF",0.5);
     addText(right,`${m.record.wins}-${m.record.losses}`,21,"bold","FFFFFF");
@@ -595,6 +599,84 @@ function lockRect(m) {
   );
   s.font = Font.mediumSystemFont(11);
   return w;
+}
+
+
+async function buildBackgroundImage(m, family) {
+  try {
+    const size =
+      family === "small" ? new Size(700,700) :
+      family === "large" ? new Size(1200,1200) :
+      new Size(1200,600);
+
+    const ctx = new DrawContext();
+    ctx.size = size;
+    ctx.opaque = true;
+    ctx.respectScreenScale = false;
+
+    const top = hexToRgb(m.team.color || "552583");
+    const bottom = hexToRgb("070911");
+    const steps = 72;
+
+    for (let i = 0; i < steps; i++) {
+      const t = i / (steps - 1);
+      const r = Math.round(top.r + (bottom.r - top.r) * t);
+      const g = Math.round(top.g + (bottom.g - top.g) * t);
+      const b = Math.round(top.b + (bottom.b - top.b) * t);
+      const hex = rgbToHex(r,g,b);
+
+      ctx.setFillColor(new Color(hex));
+      const y = Math.floor((size.height / steps) * i);
+      const h = Math.ceil(size.height / steps) + 2;
+      ctx.fillRect(new Rect(0,y,size.width,h));
+    }
+
+    const logo = await getImage(m.team.logo, `bg_${m.team.abbr.toLowerCase()}_logo`);
+    if (logo) {
+      const logoSize =
+        family === "small" ? 390 :
+        family === "large" ? 650 :
+        470;
+
+      const x = size.width - logoSize * 0.88;
+      const y = family === "large"
+        ? size.height * 0.12
+        : size.height * 0.10;
+
+      ctx.drawImageInRect(
+        logo,
+        new Rect(x,y,logoSize,logoSize)
+      );
+
+      // Dark veil keeps the watermark subtle and text readable.
+      ctx.setFillColor(new Color("05070D",0.72));
+      ctx.fillRect(new Rect(0,0,size.width,size.height));
+
+      // Extra shading on the left where most text sits.
+      ctx.setFillColor(new Color("02040A",0.22));
+      ctx.fillRect(new Rect(0,0,size.width * 0.62,size.height));
+    }
+
+    return ctx.getImage();
+  } catch (_) {
+    return null;
+  }
+}
+
+function hexToRgb(hex) {
+  const h = String(hex || "000000").replace("#","").padStart(6,"0").slice(0,6);
+  return {
+    r: parseInt(h.slice(0,2),16),
+    g: parseInt(h.slice(2,4),16),
+    b: parseInt(h.slice(4,6),16)
+  };
+}
+
+function rgbToHex(r,g,b) {
+  return [r,g,b]
+    .map(v => Math.max(0,Math.min(255,v)).toString(16).padStart(2,"0"))
+    .join("")
+    .toUpperCase();
 }
 
 function addText(parent,text,size,weight="regular",hex="FFFFFF",opacity=1) {
