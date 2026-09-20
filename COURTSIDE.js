@@ -1,4 +1,4 @@
-// COURTSIDE v0.3.1
+// COURTSIDE v0.3.2
 // Scriptable NBA favorite-team widget.
 // Widget parameter: NBA team abbreviation, e.g. LAL, GSW, BOS.
 
@@ -616,7 +616,7 @@ async function buildBackgroundImage(m, family) {
 
     const top = hexToRgb(m.team.color || "552583");
     const bottom = hexToRgb("070911");
-    const steps = 72;
+    const steps = 96;
 
     for (let i = 0; i < steps; i++) {
       const t = i / (steps - 1);
@@ -631,27 +631,29 @@ async function buildBackgroundImage(m, family) {
       ctx.fillRect(new Rect(0,y,size.width,h));
     }
 
-    const logo = await getImage(m.team.logo, `bg_${m.team.abbr.toLowerCase()}_logo`);
-    if (logo) {
-      const logoSize =
-        family === "small" ? 340 :
-        family === "large" ? 590 :
-        410;
+    // Watermark typography avoids bitmap alpha seams while keeping team identity.
+    const mark = m.team.abbr || "";
+    const fontSize =
+      family === "small" ? 220 :
+      family === "large" ? 330 :
+      260;
 
-      const x = size.width - logoSize * 0.94;
-      const y = family === "large"
-        ? size.height * 0.14
-        : size.height * 0.15;
+    ctx.setFont(Font.boldSystemFont(fontSize));
+    ctx.setTextColor(new Color("FFFFFF",0.055));
+    ctx.setTextAlignedRight();
 
-      ctx.drawImageInRect(
-        logo,
-        new Rect(x,y,logoSize,logoSize)
-      );
+    const rect =
+      family === "small"
+        ? new Rect(size.width * 0.18, size.height * 0.22, size.width * 0.72, size.height * 0.50)
+        : family === "large"
+          ? new Rect(size.width * 0.30, size.height * 0.26, size.width * 0.62, size.height * 0.40)
+          : new Rect(size.width * 0.38, size.height * 0.15, size.width * 0.55, size.height * 0.55);
 
-      // Dark veil keeps the watermark subtle and text readable.
-      ctx.setFillColor(new Color("05070D",0.72));
-      ctx.fillRect(new Rect(0,0,size.width,size.height));
-    }
+    ctx.drawTextInRect(mark, rect);
+
+    // Soft overall veil for readability.
+    ctx.setFillColor(new Color("03050A",0.16));
+    ctx.fillRect(new Rect(0,0,size.width,size.height));
 
     return ctx.getImage();
   } catch (_) {
