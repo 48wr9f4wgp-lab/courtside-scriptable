@@ -1,4 +1,4 @@
-// COURTSIDE v0.4
+// COURTSIDE v0.4.1
 // Scriptable NBA favorite-team widget.
 // Widget parameter: NBA team abbreviation, e.g. LAL, GSW, BOS.
 
@@ -84,7 +84,7 @@ async function loadModel() {
         e.state !== "in" &&
         e.date >= new Date(now.getTime() - 3 * 60 * 60 * 1000)
       )
-      .slice(0,3);
+      .slice(0,5);
     const upcoming = nextGames[0] || null;
 
     const completed = events.filter(e => e.completed).sort((a,b) => b.date - a.date);
@@ -140,7 +140,7 @@ function normalizeEvent(event, forcedSeasonType = 0) {
     if (!comp) return null;
 
     const competitors = comp.competitors || [];
-    const mine = competitors.find(c => c.team?.abbreviation?.toUpperCase() === TEAM);
+    const mine = competitors.find(c => canonicalAbbr(c.team?.abbreviation) === TEAM);
     const opp = competitors.find(c => c !== mine);
     if (!mine || !opp) return null;
 
@@ -161,7 +161,7 @@ function normalizeEvent(event, forcedSeasonType = 0) {
       seasonType: forcedSeasonType || Number(event.season?.type || 0),
       homeAway: mine.homeAway || "",
       opponent: {
-        abbr: opp.team?.abbreviation || "OPP",
+        abbr: canonicalAbbr(opp.team?.abbreviation || "OPP"),
         name: opp.team?.shortDisplayName || opp.team?.name || "Opponent",
         logo: opp.team?.logo || logoURL(opp.team?.abbreviation || "")
       },
@@ -230,6 +230,20 @@ async function getImage(url, key) {
   } catch (_) {
     return fm.fileExists(p) ? fm.readImage(p) : null;
   }
+}
+
+function canonicalAbbr(value) {
+  const raw = String(value || "").toUpperCase();
+
+  const map = {
+    GS: "GSW",
+    NO: "NOP",
+    NY: "NYK",
+    SA: "SAS",
+    WSH: "WAS"
+  };
+
+  return map[raw] || raw;
 }
 
 function phase(m) {
@@ -535,7 +549,7 @@ async function largeWidget(w,m) {
   w.addSpacer(14);
 
   if (phase(m) === "preseason") {
-    const more = (m.nextGames || []).slice(1,3);
+    const more = (m.nextGames || []).slice(1,5);
 
     if (more.length) {
       addText(w,"UPCOMING",9,"bold","FFFFFF",0.58);
