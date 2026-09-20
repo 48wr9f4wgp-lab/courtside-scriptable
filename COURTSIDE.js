@@ -1,4 +1,4 @@
-// COURTSIDE v0.2
+// COURTSIDE v0.2.1
 // Scriptable NBA favorite-team widget.
 // Widget parameter: NBA team abbreviation, e.g. LAL, GSW, BOS.
 
@@ -58,16 +58,20 @@ async function loadModel() {
     ]);
 
     const team = teamJson?.team || {};
-    const all = [...(pre?.events || []), ...(reg?.events || []), ...(post?.events || [])];
+    const all = [
+      ...(pre?.events || []).map(event => ({ event, forcedSeasonType: 1 })),
+      ...(reg?.events || []).map(event => ({ event, forcedSeasonType: 2 })),
+      ...(post?.events || []).map(event => ({ event, forcedSeasonType: 3 }))
+    ];
     const seen = new Set();
 
     const events = all
-      .filter(e => {
-        if (!e?.id || seen.has(e.id)) return false;
-        seen.add(e.id);
+      .filter(item => {
+        if (!item.event?.id || seen.has(item.event.id)) return false;
+        seen.add(item.event.id);
         return true;
       })
-      .map(normalizeEvent)
+      .map(item => normalizeEvent(item.event, item.forcedSeasonType))
       .filter(Boolean)
       .sort((a,b) => a.date - b.date);
 
@@ -125,7 +129,7 @@ async function loadModel() {
   }
 }
 
-function normalizeEvent(event) {
+function normalizeEvent(event, forcedSeasonType = 0) {
   try {
     const comp = event.competitions?.[0];
     if (!comp) return null;
@@ -149,7 +153,7 @@ function normalizeEvent(event) {
       period: Number(status.period || 0),
       clock: status.displayClock || "",
       statusText: status.type?.shortDetail || status.type?.detail || "",
-      seasonType: Number(event.season?.type || 0),
+      seasonType: forcedSeasonType || Number(event.season?.type || 0),
       homeAway: mine.homeAway || "",
       opponent: {
         abbr: opp.team?.abbreviation || "OPP",
